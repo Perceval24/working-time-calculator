@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arbeitszeit Rechner</title>
+<style>
+  :root {
+    --bg: #eef1f4;
+    --card: #ffffff;
+    --ink: #1c2530;
+    --muted: #5d6b7a;
+    --line: #d3dae1;
+    --ok-bg: #2e9e5b;
+    --bad-bg: #d33a3a;
+    --on-color: #ffffff;
+    --accent: #23415e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141a21;
+      --card: #1d252e;
+      --ink: #e8edf2;
+      --muted: #93a2b2;
+      --line: #324050;
+      --ok-bg: #247f49;
+      --bad-bg: #b52f2f;
+      --accent: #8fb4d9;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+  main { width: 100%; max-width: 460px; }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  h1 { font-size: 1.3rem; font-weight: 600; margin: 0; }
+  .tools { display: flex; gap: 8px; }
+  dialog {
+    background: var(--card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 20px; width: calc(100% - 32px); max-width: 480px;
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .5); }
+  dialog h2 { font-size: 1.1rem; margin: 0 0 12px; }
+  dialog p { margin: 0 0 12px; line-height: 1.5; font-size: .95rem; }
+  dialog .note { color: var(--muted); font-size: .8rem; }
+  dialog a { color: var(--accent); }
+  dialog button { flex: none; width: 100%; }
+  button.lang { flex: none; padding: 4px 12px; font-size: .8rem; border-radius: 6px; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .row:last-child { border-bottom: 0; }
+  .row label, .row .name { font-size: .95rem; color: var(--muted); }
+  .row .val { font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  input {
+    font: inherit;
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+    width: 130px;
+    text-align: right;
+  }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .stepper { display: flex; align-items: stretch; gap: 4px; }
+  .stepper input { width: 96px; }
+  .arrows { display: flex; flex-direction: column; gap: 2px; }
+  .arrows button {
+    flex: 1;
+    padding: 0 10px;
+    font-size: .6rem;
+    line-height: 1;
+    border-radius: 4px;
+    min-width: 30px;
+  }
+  .row label, .row .name { display: inline-flex; align-items: center; gap: 8px; }
+  .ic { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .barrow { display: block; padding-bottom: 12px; }
+  .track { position: relative; height: 14px; border-radius: 7px; background: var(--bg); border: 1px solid var(--line); overflow: hidden; }
+  .fill { height: 100%; width: 0; background: var(--accent); transition: width .3s, background .3s; }
+  .fill.ok  { background: var(--ok-bg); }
+  .fill.bad { background: var(--bad-bg); }
+  .tick { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .55; }
+  .scale { position: relative; height: 1.2em; margin-top: 6px; font-size: .72rem; color: var(--muted); }
+  .scale span { position: absolute; white-space: nowrap; }
+  #tickLabel { transform: translateX(-50%); }
+  .row.ok  { background: var(--ok-bg);  color: var(--on-color); }
+  .row.bad { background: var(--bad-bg); color: var(--on-color); }
+  .row.ok .name, .row.bad .name { color: var(--on-color); }
+  .buttons { display: flex; gap: 10px; margin-top: 16px; }
+  button {
+    flex: 1;
+    font: inherit;
+    font-weight: 600;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--card);
+    color: var(--accent);
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent); color: var(--card); }
+  .hint { color: var(--muted); font-size: .8rem; margin-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <h1 data-i18n="h1">Arbeitszeit</h1>
+    <div class="tools">
+      <button id="law" class="lang" type="button" data-i18n-aria="lawBtn">§</button>
+      <button id="lang" class="lang" type="button">EN</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <label for="clockin"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="clockin">Clock-in</span></label>
+      <input id="clockin" type="time" value="08:00">
+    </div>
+    <div class="row">
+      <label for="brk"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h2a2 2 0 0 1 0 4h-2"/><path d="M8 3v2M12 3v2"/></svg><span data-i18n="brk">Break Time (min)</span></label>
+      <div class="stepper">
+        <input id="brk" type="text" inputmode="numeric" value="30">
+        <div class="arrows">
+          <button type="button" data-for="brk" data-dir="1" data-i18n-aria="brkUp" aria-label="Break Time +1 Minute">▲</button>
+          <button type="button" data-for="brk" data-dir="-1" data-i18n-aria="brkDown" aria-label="Break Time −1 Minute">▼</button>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <label for="target"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg><span data-i18n="target">Target Working Time (h)</span></label>
+      <div class="stepper">
+        <input id="target" type="text" inputmode="decimal" value="8,00">
+        <div class="arrows">
+          <button type="button" data-for="target" data-dir="1" data-i18n-aria="tgtUp" aria-label="Target Working Time +0,01">▲</button>
+          <button type="button" data-for="target" data-dir="-1" data-i18n-aria="tgtDown" aria-label="Target Working Time −0,01">▼</button>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <span class="name"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12M6 21h12M7 3c0 5 5 6 5 9s-5 4-5 9M17 3c0 5-5 6-5 9s5 4 5 9"/></svg><span data-i18n="now">Working Time now</span></span>
+      <span class="val" id="now">–</span>
+    </div>
+    <div class="row barrow">
+      <div class="track" role="img" data-i18n-aria="bar" aria-label="Fortschritt der Arbeitszeit bis 10 Stunden">
+        <div class="fill" id="fill"></div>
+        <div class="tick" id="tick"></div>
+      </div>
+      <div class="scale">
+        <span style="left:0">0 h</span>
+        <span id="tickLabel" data-i18n="tick" style="left:80%">Target</span>
+        <span style="right:0">10 h</span>
+      </div>
+    </div>
+    <div class="row ok">
+      <span class="name"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg><span data-i18n="reached">Target Working Time reached at</span></span>
+      <span class="val" id="reached">–</span>
+    </div>
+    <div class="row bad">
+      <span class="name"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.01"/></svg><span data-i18n="violation">10 hour violation at</span></span>
+      <span class="val" id="violation">–</span>
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button id="toggle" type="button" data-i18n="toggle">Toggle hundredths of an hour</button>
+    <button id="refresh" type="button" data-i18n="refresh">Refresh</button>
+  </div>
+  <p class="hint" data-i18n="hint">Working time = time since clock-in minus break. Times at which the target and the 10 hour limit are reached include the break.</p>
+</main>
+
+<dialog id="lawDlg" aria-labelledby="lawTitle">
+  <h2 id="lawTitle" data-i18n="lawTitle">§ 4 ArbZG – Ruhepausen</h2>
+  <p lang="de">Die Arbeit ist durch im voraus feststehende Ruhepausen von mindestens 30 Minuten bei einer Arbeitszeit von mehr als sechs bis zu neun Stunden und 45 Minuten bei einer Arbeitszeit von mehr als neun Stunden insgesamt zu unterbrechen. Die Ruhepausen nach Satz 1 können in Zeitabschnitte von jeweils mindestens 15 Minuten aufgeteilt werden. Länger als sechs Stunden hintereinander dürfen Arbeitnehmer nicht ohne Ruhepause beschäftigt werden.</p>
+  <div id="lawEn" lang="en" hidden>
+    <p class="note" data-i18n="lawNote">Unofficial translation</p>
+    <p>Work must be interrupted by rest breaks fixed in advance, totalling at least 30 minutes for working hours of more than six and up to nine hours, and 45 minutes for working hours of more than nine hours. The rest breaks under sentence 1 may be split into periods of at least 15 minutes each. Employees may not be employed for more than six consecutive hours without a rest break.</p>
+  </div>
+  <p class="note"><a href="https://www.gesetze-im-internet.de/arbzg/__4.html" target="_blank" rel="noopener" data-i18n="lawSource">Gesetzestext auf gesetze-im-internet.de</a></p>
+  <button id="lawClose" type="button" data-i18n="lawClose">Schließen</button>
+</dialog>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY = "worktime-v4";
+  var decimal = false;
+  var lang = "de";
+  var brkManual = false; // true, sobald die Pause von Hand geändert wurde
+
+  // Automatische Pause: 30 min, bei Soll-Arbeitszeit > 9 h → 45 min
+  function applyAutoBreak() {
+    if (brkManual) return;
+    $("brk").value = String($("target").value !== "" && num($("target").value) > 9 ? 45 : 30);
+  }
+
+  // accepts "3,32" and "3.32"
+  function num(s) {
+    var n = parseFloat(String(s).replace(",", "."));
+    return isNaN(n) ? 0 : n;
+  }
+  function fmtNum(n) { var s = n.toFixed(2); return lang === "de" ? s.replace(".", ",") : s; }
+
+  // break: whole minutes; target: hours in hundredths
+  function fmtField(id, v) {
+    return id === "brk" ? String(Math.round(v)) : fmtNum(v);
+  }
+
+  function step(id, dir) {
+    var el = $(id);
+    var v;
+    if (id === "brk") {
+      v = Math.max(0, Math.round(num(el.value)) + dir);
+    } else {
+      v = Math.max(0, Math.round((num(el.value) + dir * 0.01) * 100) / 100);
+    }
+    el.value = fmtField(id, v);
+    if (id === "brk") brkManual = true; else applyAutoBreak();
+    save();
+    update();
+  }
+
+  var T = {
+    de: {
+      title: "Arbeitszeit Rechner", h1: "Arbeitszeit",
+      clockin: "Arbeitsbeginn", brk: "Pause (min)", target: "Arbeitszeit (h)",
+      now: "Arbeitszeit aktuell", reached: "Arbeitszeit erreicht um",
+      violation: "10 Stunden Verstoß um", tick: "Soll",
+      toggle: "Hundertstelstunden umschalten", refresh: "Aktualisieren",
+      hint: "Arbeitszeit = Zeit seit Arbeitsbeginn minus Pause. Die Uhrzeiten für Arbeitszeit und 10 Stunden Grenze enthalten die Pause.",
+      brkUp: "Pause +1 Minute", brkDown: "Pause \u22121 Minute",
+      tgtUp: "Arbeitszeit +0,01", tgtDown: "Arbeitszeit \u22120,01",
+      lawBtn: "Gesetz anzeigen (§ 4 ArbZG)", lawTitle: "§ 4 ArbZG – Ruhepausen", lawNote: "", lawSource: "Gesetzestext auf gesetze-im-internet.de", lawClose: "Schließen",
+      bar: "Fortschritt der Arbeitszeit bis 10 Stunden", langBtn: "EN", langLabel: "Switch to English"
+    },
+    en: {
+      title: "Working Time Calculator", h1: "Working Time",
+      clockin: "Clock-in", brk: "Break Time (min)", target: "Target Working Time (h)",
+      now: "Working Time now", reached: "Target Working Time reached at",
+      violation: "10 hour violation at", tick: "Target",
+      toggle: "Toggle hundredths of an hour", refresh: "Refresh",
+      hint: "Working time = time since clock-in minus break. Times at which the target and the 10 hour limit are reached include the break.",
+      brkUp: "Break Time +1 minute", brkDown: "Break Time \u22121 minute",
+      tgtUp: "Target Working Time +0.01", tgtDown: "Target Working Time \u22120.01",
+      lawBtn: "Show the law (§ 4 ArbZG)", lawTitle: "§ 4 ArbZG – Rest breaks (German law)", lawNote: "Unofficial translation", lawSource: "Legal text on gesetze-im-internet.de (German)", lawClose: "Close",
+      bar: "Working time progress up to 10 hours", langBtn: "DE", langLabel: "Auf Deutsch wechseln"
+    }
+  };
+
+  function applyLang() {
+    var t = T[lang];
+    document.documentElement.lang = lang;
+    document.title = t.title;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-i18n]"), function (el) {
+      el.textContent = t[el.getAttribute("data-i18n")];
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-i18n-aria]"), function (el) {
+      el.setAttribute("aria-label", t[el.getAttribute("data-i18n-aria")]);
+    });
+    $("lawEn").hidden = lang !== "en";
+    $("law").title = t.lawBtn;
+    $("lang").textContent = t.langBtn;
+    $("lang").setAttribute("aria-label", t.langLabel);
+    $("target").value = fmtField("target", Math.max(0, num($("target").value)));
+  }
+
+  // restore saved inputs (guarded: storage may be unavailable)
+  try {
+    var saved = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (saved) {
+      if (saved.clockin) $("clockin").value = saved.clockin;
+      if (saved.brk !== undefined) $("brk").value = saved.brk;
+      if (saved.target !== undefined) $("target").value = saved.target;
+      decimal = !!saved.decimal;
+      brkManual = !!saved.brkManual;
+      if (saved.lang === "en" || saved.lang === "de") lang = saved.lang;
+    }
+  } catch (e) {}
+  applyAutoBreak();
+  applyLang();
+
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        clockin: $("clockin").value, brk: $("brk").value,
+        target: $("target").value, decimal: decimal, brkManual: brkManual, lang: lang
+      }));
+    } catch (e) {}
+  }
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+
+  // duration in minutes -> "H:MM" or "H.HH"
+  function fmtDur(min) {
+    var neg = min < 0;
+    min = Math.abs(min);
+    var s;
+    if (decimal) {
+      s = fmtNum(Math.round(min / 60 * 100) / 100) + " h";
+    } else {
+      var t = Math.round(min);
+      s = Math.floor(t / 60) + ":" + pad(t % 60) + " h";
+    }
+    return neg ? "−" + s : s;
+  }
+
+  // clock time from a Date
+  function fmtClock(d) {
+    var s = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    var today = new Date();
+    if (d.toDateString() !== today.toDateString()) s += " (+1)";
+    return s;
+  }
+
+  function update() {
+    var v = $("clockin").value;
+    if (!v) {
+      $("now").textContent = $("reached").textContent = $("violation").textContent = "–";
+      $("fill").style.width = "0%";
+      $("fill").className = "fill";
+      return;
+    }
+    var parts = v.split(":");
+    var start = new Date();
+    start.setHours(+parts[0], +parts[1], 0, 0);
+
+    var brk = Math.max(0, Math.round(num($("brk").value)));
+    var target = Math.max(0, num($("target").value)) * 60;
+
+    var elapsed = (Date.now() - start.getTime()) / 60000;
+    var working = Math.max(0, elapsed - brk);
+
+    var reached = new Date(start.getTime() + (target + brk) * 60000);
+    var violation = new Date(start.getTime() + (600 + brk) * 60000);
+
+    $("now").textContent = fmtDur(working);
+
+    // progress bar: 0 .. 10 h working time, tick = target
+    var tpct = Math.min(100, target / 6);
+    $("fill").style.width = Math.min(100, working / 6) + "%";
+    $("fill").className = "fill" + (working > 600 ? " bad" : working >= target && target > 0 ? " ok" : "");
+    $("tick").style.left = tpct + "%";
+    $("tickLabel").style.left = Math.min(92, Math.max(8, tpct)) + "%";
+    $("reached").textContent = fmtClock(reached);
+    $("violation").textContent = fmtClock(violation);
+  }
+
+  ["clockin", "brk", "target"].forEach(function (id) {
+    $(id).addEventListener("input", function () {
+      if (id === "brk") brkManual = $("brk").value.trim() !== "";
+      if (id === "target") applyAutoBreak();
+      if (id === "brk" && !brkManual) applyAutoBreak();
+      save(); update();
+    });
+  });
+  ["brk", "target"].forEach(function (id) {
+    $(id).addEventListener("keydown", function (e) {
+      if (e.key === "ArrowUp") { e.preventDefault(); step(id, 1); }
+      if (e.key === "ArrowDown") { e.preventDefault(); step(id, -1); }
+    });
+    $(id).addEventListener("blur", function () {
+      if (id === "brk" && $("brk").value.trim() === "") brkManual = false;
+      if (id === "target") applyAutoBreak();
+      if (id === "brk" && !brkManual) applyAutoBreak();
+      $(id).value = fmtField(id, Math.max(0, num($(id).value)));
+      save(); update();
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".arrows button"), function (b) {
+    b.addEventListener("click", function () { step(b.dataset.for, +b.dataset.dir); });
+  });
+  $("toggle").addEventListener("click", function () { decimal = !decimal; save(); update(); });
+  $("refresh").addEventListener("click", update);
+  $("law").addEventListener("click", function () {
+    var d = $("lawDlg");
+    if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+  });
+  $("lawClose").addEventListener("click", function () {
+    var d = $("lawDlg");
+    if (d.close) d.close(); else d.removeAttribute("open");
+  });
+  $("lawDlg").addEventListener("click", function (e) {
+    if (e.target === this && this.close) this.close();
+  });
+  $("lang").addEventListener("click", function () {
+    lang = lang === "de" ? "en" : "de";
+    applyLang(); save(); update();
+  });
+
+  update();
+  setInterval(update, 30000);
+})();
+</script>
+</body>
+</html>
