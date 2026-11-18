@@ -46,7 +46,9 @@
   dialog {
     background: var(--card); color: var(--ink);
     border: 1px solid var(--line); border-radius: 10px;
-    padding: 20px; width: calc(100% - 32px); max-width: 480px;
+    padding: 12px; width: calc(100% - 16px); max-width: 390px;
+    max-height: calc(100vh - 16px);
+    overflow: hidden;
   }
   dialog::backdrop { background: rgba(0, 0, 0, .5); }
   dialog h2 { font-size: 1.1rem; margin: 0 0 12px; }
@@ -54,6 +56,79 @@
   dialog .note { color: var(--muted); font-size: .8rem; }
   dialog a { color: var(--accent); }
   dialog button { flex: none; width: 100%; }
+  .break-toggle {
+    flex: none;
+    width: auto;
+    min-width: 68px;
+    padding: 7px 10px;
+    margin-left: 4px;
+    border-color: var(--accent);
+    background: var(--card);
+    color: var(--accent);
+    font-size: .78rem;
+    font-weight: 600;
+    line-height: 1;
+    border-radius: 6px;
+  }
+  .break-toggle:hover {
+    background: var(--accent);
+    color: var(--card);
+  }
+  .break-row .stepper {
+    margin-left: auto;
+  }
+  .break-entry {
+    display: grid;
+    grid-template-columns: minmax(82px, 1fr) 76px 76px 54px 28px;
+    gap: 4px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .break-entry input {
+    width: 100%;
+    min-width: 0;
+    padding: 6px 3px;
+    font-size: .75rem;
+  }
+  .break-entry button { width: 28px; padding: 6px 2px; }
+  .break-entry.fixed .break-name {
+    font-style: italic;
+  }
+  .break-entry input::placeholder {
+    color: var(--muted);
+    opacity: 1;
+    font-style: italic;
+    -webkit-text-fill-color: var(--muted);
+  }
+  .break-entry.fixed .break-name:not(:placeholder-shown) {
+    color: var(--ink);
+    font-style: normal;
+    -webkit-text-fill-color: var(--ink);
+  }
+  .break-entry-head {
+    display: grid;
+    grid-template-columns: minmax(82px, 1fr) 76px 76px 54px 28px;
+    gap: 4px;
+    color: var(--muted);
+    font-size: .68rem;
+    margin-bottom: 4px;
+  }
+  .dialog-actions { display: flex; justify-content: space-between; gap: 6px; margin-top: 8px; }
+  .dialog-actions button { flex: 0 1 82px; width: 82px; padding: 7px 8px; font-size: .78rem; }
+  #breakAdd {
+    width: 28px;
+    min-width: 28px;
+    flex: none;
+    padding: 5px 0;
+    margin-top: 2px;
+  }
+  @media (max-width: 430px) {
+    .break-entry, .break-entry-head {
+      grid-template-columns: minmax(76px, 1fr) 72px 72px 48px 28px;
+      gap: 3px;
+    }
+    dialog { width: calc(100% - 16px); padding: 12px; }
+  }
   button.lang { flex: none; padding: 4px 12px; font-size: .8rem; border-radius: 6px; }
   .panel {
     background: var(--card);
@@ -133,6 +208,7 @@
     <h1 data-i18n="h1">Arbeitszeit</h1>
     <div class="tools">
       <button id="law" class="lang" type="button" data-i18n-aria="lawBtn">§</button>
+      <button id="reset" class="lang" type="button" data-i18n-aria="resetBtn">↺</button>
       <button id="lang" class="lang" type="button">EN</button>
     </div>
   </div>
@@ -142,8 +218,9 @@
       <label for="clockin"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="clockin">Clock-in</span></label>
       <input id="clockin" type="time" value="08:00">
     </div>
-    <div class="row">
+    <div class="row break-row">
       <label for="brk"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h2a2 2 0 0 1 0 4h-2"/><path d="M8 3v2M12 3v2"/></svg><span data-i18n="brk">Break Time (min)</span></label>
+      <button id="breakEdit" class="break-toggle" type="button" data-i18n="breakEntries" data-i18n-aria="breakOpen" aria-label="Open breaks">Breaks</button>
       <div class="stepper">
         <input id="brk" type="text" inputmode="numeric" value="30">
         <div class="arrows">
@@ -194,6 +271,24 @@
   <p class="hint" data-i18n="hint">Working time = time since clock-in minus break. Times at which the target and the 10 hour limit are reached include the break.</p>
 </main>
 
+<dialog id="breakDlg" aria-labelledby="breakTitle">
+  <h2 id="breakTitle" data-i18n="breakTitle">Individuelle Pausen</h2>
+  <p class="note" data-i18n="breakHint">Name und Dauer oder optional eine Uhrzeit eingeben.</p>
+  <div class="break-entry-head" aria-hidden="true">
+    <span data-i18n="breakName">Name</span>
+    <span data-i18n="breakFrom">Von</span>
+    <span data-i18n="breakTo">Bis</span>
+    <span data-i18n="breakMinutes">Min.</span>
+    <span></span>
+  </div>
+  <div id="breakList"></div>
+  <button id="breakAdd" type="button" data-i18n-aria="breakAdd" aria-label="Pause hinzufügen">+</button>
+  <div class="dialog-actions">
+    <button id="breakSave" type="button" data-i18n="breakSave">Speichern</button>
+    <button id="breakCancel" type="button" data-i18n="breakCancel">Abbrechen</button>
+  </div>
+</dialog>
+
 <dialog id="lawDlg" aria-labelledby="lawTitle">
   <h2 id="lawTitle" data-i18n="lawTitle">§ 4 ArbZG – Ruhepausen</h2>
   <p lang="de">Die Arbeit ist durch im voraus feststehende Ruhepausen von mindestens 30 Minuten bei einer Arbeitszeit von mehr als sechs bis zu neun Stunden und 45 Minuten bei einer Arbeitszeit von mehr als neun Stunden insgesamt zu unterbrechen. Die Ruhepausen nach Satz 1 können in Zeitabschnitte von jeweils mindestens 15 Minuten aufgeteilt werden. Länger als sechs Stunden hintereinander dürfen Arbeitnehmer nicht ohne Ruhepause beschäftigt werden.</p>
@@ -212,10 +307,12 @@
   var decimal = false;
   var lang = "de";
   var brkManual = false; // true, sobald die Pause von Hand geändert wurde
+  var breakEntries = [];
+  var breakDraft = [];
 
   // Automatische Pause: 30 min, bei Soll-Arbeitszeit > 9 h → 45 min
   function applyAutoBreak() {
-    if (brkManual) return;
+    if (brkManual || breakEntries.length) return;
     $("brk").value = String($("target").value !== "" && num($("target").value) > 9 ? 45 : 30);
   }
 
@@ -236,6 +333,9 @@
     var v;
     if (id === "brk") {
       v = Math.max(0, Math.round(num(el.value)) + dir);
+      breakEntries = [];
+      brkManual = true;
+      updateBreakSummary();
     } else {
       v = Math.max(0, Math.round((num(el.value) + dir * 0.01) * 100) / 100);
     }
@@ -253,9 +353,18 @@
       violation: "10 Stunden Verstoß um", tick: "Soll",
       toggle: "Hundertstelstunden umschalten", refresh: "Aktualisieren",
       hint: "Arbeitszeit = Zeit seit Arbeitsbeginn minus Pause. Die Uhrzeiten für Arbeitszeit und 10 Stunden Grenze enthalten die Pause.",
+      breakEntries: "Pausen", breakEdit: "Einträge bearbeiten", breakOpen: "Pausen öffnen",
+      breakTitle: "Individuelle Pausen", breakHint: "Name und Dauer oder optional eine Uhrzeit eingeben.",
+      breakName: "Name", breakFrom: "Von", breakTo: "Bis", breakMinutes: "Min.",
+      breakAdd: "Pause hinzufügen", breakCancel: "Abbrechen", breakSave: "Speichern",
+      breakNameRequired: "Bitte gib einen Namen für jede Pause ein.",
+      breakDurationRequired: "Bitte gib eine Minutenanzahl an.",
+      breakInvalidTime: "Bitte gib für Von und Bis eine gültige Uhrzeit ein.",
+      breakInvalidMinutes: "Minuten müssen eine positive Zahl sein.",
+      breakIncompleteTime: "Bitte gib sowohl Von als auch Bis ein.",
       brkUp: "Pause +1 Minute", brkDown: "Pause \u22121 Minute",
       tgtUp: "Arbeitszeit +0,01", tgtDown: "Arbeitszeit \u22120,01",
-      lawBtn: "Gesetz anzeigen (§ 4 ArbZG)", lawTitle: "§ 4 ArbZG – Ruhepausen", lawNote: "", lawSource: "Gesetzestext auf gesetze-im-internet.de", lawClose: "Schließen",
+      lawBtn: "Gesetz anzeigen (§ 4 ArbZG)", resetBtn: "Rechner zurücksetzen", resetConfirm: "Möchtest du alle Eingaben und Pausen zurücksetzen?", lawTitle: "§ 4 ArbZG – Ruhepausen", lawNote: "", lawSource: "Gesetzestext auf gesetze-im-internet.de", lawClose: "Schließen",
       bar: "Fortschritt der Arbeitszeit bis 10 Stunden", langBtn: "EN", langLabel: "Switch to English"
     },
     en: {
@@ -265,9 +374,18 @@
       violation: "10 hour violation at", tick: "Target",
       toggle: "Toggle hundredths of an hour", refresh: "Refresh",
       hint: "Working time = time since clock-in minus break. Times at which the target and the 10 hour limit are reached include the break.",
+      breakEntries: "Breaks", breakEdit: "Edit entries", breakOpen: "Open breaks",
+      breakTitle: "Individual breaks", breakHint: "Enter a name and duration, or optionally a time range.",
+      breakName: "Name", breakFrom: "From", breakTo: "To", breakMinutes: "Min.",
+      breakAdd: "Add break", breakCancel: "Cancel", breakSave: "Save",
+      breakNameRequired: "Please enter a name for every break.",
+      breakDurationRequired: "Please enter a number of minutes.",
+      breakInvalidTime: "Please enter a valid time for From and To.",
+      breakInvalidMinutes: "Minutes must be a positive number.",
+      breakIncompleteTime: "Please enter both From and To.",
       brkUp: "Break Time +1 minute", brkDown: "Break Time \u22121 minute",
       tgtUp: "Target Working Time +0.01", tgtDown: "Target Working Time \u22120.01",
-      lawBtn: "Show the law (§ 4 ArbZG)", lawTitle: "§ 4 ArbZG – Rest breaks (German law)", lawNote: "Unofficial translation", lawSource: "Legal text on gesetze-im-internet.de (German)", lawClose: "Close",
+      lawBtn: "Show the law (§ 4 ArbZG)", resetBtn: "Reset calculator", resetConfirm: "Do you want to reset all inputs and breaks?", lawTitle: "§ 4 ArbZG – Rest breaks (German law)", lawNote: "Unofficial translation", lawSource: "Legal text on gesetze-im-internet.de (German)", lawClose: "Close",
       bar: "Working time progress up to 10 hours", langBtn: "DE", langLabel: "Auf Deutsch wechseln"
     }
   };
@@ -284,9 +402,11 @@
     });
     $("lawEn").hidden = lang !== "en";
     $("law").title = t.lawBtn;
+    $("reset").title = t.resetBtn;
     $("lang").textContent = t.langBtn;
     $("lang").setAttribute("aria-label", t.langLabel);
     $("target").value = fmtField("target", Math.max(0, num($("target").value)));
+    updateBreakSummary();
   }
 
   // restore saved inputs (guarded: storage may be unavailable)
@@ -298,19 +418,133 @@
       if (saved.target !== undefined) $("target").value = saved.target;
       decimal = !!saved.decimal;
       brkManual = !!saved.brkManual;
+      if (Array.isArray(saved.breakEntries)) breakEntries = saved.breakEntries;
       if (saved.lang === "en" || saved.lang === "de") lang = saved.lang;
     }
   } catch (e) {}
-  applyAutoBreak();
+  if (breakEntries.length) syncBreakEntries(false); else applyAutoBreak();
   applyLang();
 
   function save() {
     try {
       localStorage.setItem(KEY, JSON.stringify({
         clockin: $("clockin").value, brk: $("brk").value,
-        target: $("target").value, decimal: decimal, brkManual: brkManual, lang: lang
+        target: $("target").value, decimal: decimal, brkManual: brkManual,
+        breakEntries: breakEntries, lang: lang
       }));
     } catch (e) {}
+  }
+
+  function entryMinutes(entry) {
+    if (!entry) return 0;
+    if (entry.from && entry.to) {
+      var range = calculateTimeRange(entry.from, entry.to);
+      if (range > 0) return range;
+    }
+    var minutes = /^\d+$/.test(String(entry.minutes || "")) ? parseInt(entry.minutes, 10) : 0;
+    return Math.max(0, minutes);
+  }
+
+  function isValidTime(value) {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value || "")) return false;
+    var parts = value.split(":");
+    return parts.length === 2;
+  }
+
+  function calculateTimeRange(from, to) {
+    if (!isValidTime(from) || !isValidTime(to)) return 0;
+    var fromParts = from.split(":");
+    var toParts = to.split(":");
+    var start = (+fromParts[0]) * 60 + (+fromParts[1]);
+    var end = (+toParts[0]) * 60 + (+toParts[1]);
+    if (end === start) return 0;
+    if (end < start) end += 24 * 60;
+    return end - start;
+  }
+
+  function syncBreakEntries(persist) {
+    var total = breakEntries.reduce(function (sum, entry) {
+      return sum + entryMinutes(entry);
+    }, 0);
+    $("brk").value = String(total);
+    brkManual = breakEntries.some(function (entry) {
+      return entryMinutes(entry) > 0;
+    });
+    updateBreakSummary();
+    if (persist) { save(); update(); }
+  }
+
+  function updateBreakSummary() {
+    var total = breakEntries.reduce(function (sum, entry) {
+      return sum + entryMinutes(entry);
+    }, 0);
+    if (!breakEntries.length) total = Math.max(0, Math.round(num($("brk").value)));
+    var summary = $("breakTotal");
+    if (summary) {
+      summary.textContent = lang === "de"
+        ? total + " Min."
+        : total + " min";
+    }
+  }
+
+  function renderBreakEntries() {
+    var list = $("breakList");
+    list.textContent = "";
+    breakDraft.forEach(function (entry, index) {
+      var row = document.createElement("div");
+      row.className = "break-entry";
+      if (entry.fixed) row.className += " fixed";
+      row.innerHTML =
+        '<input class="break-name" type="text" maxlength="40" aria-label="' + (lang === "de" ? "Name" : "Name") + '">' +
+        '<input class="break-from" type="text" inputmode="numeric" maxlength="5" aria-label="' + (lang === "de" ? "Von" : "From") + '">' +
+        '<input class="break-to" type="text" inputmode="numeric" maxlength="5" aria-label="' + (lang === "de" ? "Bis" : "To") + '">' +
+        '<input class="break-minutes" type="text" inputmode="numeric" maxlength="4" aria-label="' + (lang === "de" ? "Minuten" : "Minutes") + '">' +
+        '<button type="button" aria-label="' + (lang === "de" ? "Entfernen" : "Remove") + '">×</button>';
+      var nameInput = row.querySelector(".break-name");
+      nameInput.value = entry.name || "";
+      if (entry.isDefault) nameInput.placeholder = lang === "de" ? "Kaffeepause" : "Coffee break";
+      var fromInput = row.querySelector(".break-from");
+      var toInput = row.querySelector(".break-to");
+      var minutesInput = row.querySelector(".break-minutes");
+      if (entry.isDefault) {
+        var now = new Date();
+        fromInput.value = pad(now.getHours()) + ":" + pad(now.getMinutes());
+        toInput.value = "";
+        minutesInput.value = "";
+      } else {
+        fromInput.value = entry.from || "";
+        toInput.value = entry.to || "";
+        minutesInput.value = entry.minutes || "";
+      }
+      Array.prototype.forEach.call(row.querySelectorAll(".break-from, .break-to"), function (timeInput) {
+        timeInput.addEventListener("input", function () {
+          var digits = timeInput.value.replace(/\D/g, "").slice(0, 4);
+          if (digits.length >= 3) {
+            timeInput.value = digits.slice(0, 2) + ":" + digits.slice(2);
+          } else {
+            timeInput.value = digits;
+          }
+          var from = row.querySelector(".break-from").value;
+          var to = row.querySelector(".break-to").value;
+          var duration = calculateTimeRange(from, to);
+          if (duration > 0) row.querySelector(".break-minutes").value = String(duration);
+        });
+      });
+      var minutesInput = row.querySelector(".break-minutes");
+      minutesInput.addEventListener("input", function () {
+        minutesInput.value = minutesInput.value.replace(/\D/g, "").slice(0, 4);
+      });
+      var removeButton = row.querySelector("button");
+      if (entry.fixed) {
+        removeButton.hidden = true;
+      } else {
+        removeButton.addEventListener("click", function () {
+          breakDraft.splice(index, 1);
+          renderBreakEntries();
+        });
+      }
+      list.appendChild(row);
+    });
   }
 
   function pad(n) { return (n < 10 ? "0" : "") + n; }
@@ -372,7 +606,12 @@
 
   ["clockin", "brk", "target"].forEach(function (id) {
     $(id).addEventListener("input", function () {
-      if (id === "brk") brkManual = $("brk").value.trim() !== "";
+      if (id === "brk") {
+        $("brk").value = $("brk").value.replace(/[^\d]/g, "").slice(0, 4);
+        breakEntries = [];
+        brkManual = $("brk").value.trim() !== "";
+        updateBreakSummary();
+      }
       if (id === "target") applyAutoBreak();
       if (id === "brk" && !brkManual) applyAutoBreak();
       save(); update();
@@ -384,7 +623,11 @@
       if (e.key === "ArrowDown") { e.preventDefault(); step(id, -1); }
     });
     $(id).addEventListener("blur", function () {
-      if (id === "brk" && $("brk").value.trim() === "") brkManual = false;
+      if (id === "brk" && $("brk").value.trim() === "") {
+        breakEntries = [];
+        brkManual = false;
+        updateBreakSummary();
+      }
       if (id === "target") applyAutoBreak();
       if (id === "brk" && !brkManual) applyAutoBreak();
       $(id).value = fmtField(id, Math.max(0, num($(id).value)));
@@ -393,6 +636,134 @@
   });
   Array.prototype.forEach.call(document.querySelectorAll(".arrows button"), function (b) {
     b.addEventListener("click", function () { step(b.dataset.for, +b.dataset.dir); });
+  });
+  $("breakEdit").addEventListener("click", function () {
+    if (!breakEntries.length) {
+      var now = new Date();
+      breakDraft = [{
+        name: "",
+        from: pad(now.getHours()) + ":" + pad(now.getMinutes()),
+        to: "",
+        minutes: "",
+        fixed: true,
+        isDefault: true
+      }];
+    } else {
+      breakDraft = breakEntries.filter(function (entry) {
+        return entry && (entry.name || entry.from || entry.to || entry.minutes);
+      }).map(function (entry) {
+        return {
+          name: entry.name || "",
+          from: entry.from || "",
+          to: entry.to || "",
+          minutes: entry.minutes || "",
+          fixed: false,
+          isDefault: false
+        };
+      });
+      if (!breakDraft.length) {
+        var now = new Date();
+        breakDraft = [{
+          name: "",
+          from: pad(now.getHours()) + ":" + pad(now.getMinutes()),
+          to: "",
+          minutes: "",
+          fixed: true,
+          isDefault: true
+        }];
+      } else {
+        breakDraft[0].fixed = true;
+      }
+    }
+    renderBreakEntries();
+    var d = $("breakDlg");
+    if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+  });
+  $("breakAdd").addEventListener("click", function () {
+    breakDraft.push({
+      name: "",
+      from: "",
+      to: "",
+      minutes: "",
+      fixed: false,
+      isDefault: true
+    });
+    renderBreakEntries();
+  });
+  $("breakCancel").addEventListener("click", function () {
+    var d = $("breakDlg");
+    if (d.close) d.close(); else d.removeAttribute("open");
+  });
+  $("breakSave").addEventListener("click", function () {
+    var t = T[lang];
+    var invalidMessage = "";
+    var rows = $("breakList").querySelectorAll(".break-entry");
+    var nextBreakEntries = [];
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var fixed = row.classList.contains("fixed");
+      var name = row.querySelector(".break-name").value.trim();
+      var isDefault = row.querySelector(".break-name").placeholder !== "";
+      if (isDefault && !name) name = lang === "de" ? "Kaffeepause" : "Coffee break";
+      var from = row.querySelector(".break-from").value.trim();
+      var to = row.querySelector(".break-to").value.trim();
+      var minutes = row.querySelector(".break-minutes").value.trim();
+
+      if (!name) {
+        invalidMessage = t.breakNameRequired;
+        break;
+      }
+      if ((from && !isValidTime(from)) || (to && !isValidTime(to))) {
+        invalidMessage = t.breakInvalidTime;
+        break;
+      }
+
+      var duration = 0;
+      if (from && to) {
+        duration = calculateTimeRange(from, to);
+        if (!duration) {
+          invalidMessage = t.breakDurationRequired;
+          break;
+        }
+        minutes = String(duration);
+      } else {
+        if (!minutes) {
+          invalidMessage = t.breakDurationRequired;
+          break;
+        }
+        if (!/^\d+$/.test(minutes) || parseInt(minutes, 10) <= 0) {
+          invalidMessage = t.breakDurationRequired;
+          break;
+        }
+        duration = parseInt(minutes, 10);
+        minutes = String(duration);
+      }
+
+      nextBreakEntries.push({
+        name: name,
+        from: from,
+        to: to,
+        minutes: minutes,
+        fixed: fixed
+      });
+    }
+    if (invalidMessage) {
+      window.alert(invalidMessage);
+      return;
+    }
+    breakEntries = nextBreakEntries;
+    if (breakEntries.length) syncBreakEntries(true);
+    else {
+      brkManual = false;
+      applyAutoBreak();
+      updateBreakSummary();
+      save(); update();
+    }
+    var d = $("breakDlg");
+    if (d.close) d.close(); else d.removeAttribute("open");
+  });
+  $("breakDlg").addEventListener("click", function (e) {
+    if (e.target === this && this.close) this.close();
   });
   $("toggle").addEventListener("click", function () { decimal = !decimal; save(); update(); });
   $("refresh").addEventListener("click", update);
@@ -410,6 +781,19 @@
   $("lang").addEventListener("click", function () {
     lang = lang === "de" ? "en" : "de";
     applyLang(); save(); update();
+  });
+  $("reset").addEventListener("click", function () {
+    if (!window.confirm(T[lang].resetConfirm)) return;
+    $("clockin").value = "08:00";
+    $("target").value = lang === "de" ? "8,00" : "8.00";
+    breakEntries = [];
+    breakDraft = [];
+    brkManual = false;
+    decimal = false;
+    applyAutoBreak();
+    applyLang();
+    save();
+    update();
   });
 
   update();
